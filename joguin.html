@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>COD 2D</title>
+
+<style>
+body {
+    margin: 0;
+    overflow: hidden;
+    background: #111;
+    cursor: crosshair;
+    font-family: Arial;
+}
+
+#hud {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: white;
+    font-size: 18px;
+    z-index: 10;
+}
+</style>
+</head>
+
+<body>
+<div id="hud"></div>
+<canvas id="game"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+let keys = {};
+let bullets = [];
+let enemies = [];
+let score = 0;
+let life = 5;
+
+const player = {
+    x: canvas.width/2,
+    y: canvas.height/2,
+    size: 18,
+    speed: 4
+};
+
+const mouse = { x: 0, y: 0 };
+
+document.addEventListener("mousemove", e => {
+    mouse.x = e.clientX;
+    mouse.y = e.clientY;
+});
+
+document.addEventListener("keydown", e => keys[e.key.toLowerCase()] = true);
+document.addEventListener("keyup", e => keys[e.key.toLowerCase()] = false);
+
+document.addEventListener("mousedown", shoot);
+
+function shoot(){
+    const angle = Math.atan2(mouse.y - player.y, mouse.x - player.x);
+
+    bullets.push({
+        x: player.x,
+        y: player.y,
+        vx: Math.cos(angle) * 7,
+        vy: Math.sin(angle) * 7,
+        size: 5
+    });
+}
+
+// paredes simples
+const walls = [
+    {x:300,y:200,w:200,h:20},
+    {x:600,y:400,w:20,h:200},
+    {x:900,y:150,w:250,h:20}
+];
+
+function spawnEnemy(){
+    enemies.push({
+        x: Math.random()*canvas.width,
+        y: Math.random()*canvas.height,
+        size: 20,
+        speed: 1.2
+    });
+}
+setInterval(spawnEnemy, 1200);
+
+function collision(a,b){
+    return Math.hypot(a.x-b.x, a.y-b.y) < (a.size + b.size);
+}
+
+function update(){
+
+    // movimento
+    if(keys["w"]) player.y -= player.speed;
+    if(keys["s"]) player.y += player.speed;
+    if(keys["a"]) player.x -= player.speed;
+    if(keys["d"]) player.x += player.speed;
+
+    // bullets
+    bullets.forEach(b => {
+        b.x += b.vx;
+        b.y += b.vy;
+    });
+
+    // inimigos seguem player
+    enemies.forEach(e => {
+        const dx = player.x - e.x;
+        const dy = player.y - e.y;
+        const dist = Math.hypot(dx,dy);
+
+        e.x += (dx/dist) * e.speed;
+        e.y += (dy/dist) * e.speed;
+    });
+
+    // colisão bala-inimigo
+    bullets.forEach((b, bi) => {
+        enemies.forEach((e, ei) => {
+            if(collision(b,e)){
+                enemies.splice(ei,1);
+                bullets.splice(bi,1);
+                score++;
+            }
+        });
+    });
+
+    // colisão player-inimigo
+    enemies.forEach((e, ei) => {
+        if(collision(player,e)){
+            enemies.splice(ei,1);
+            life--;
+
+            if(life <= 0){
+                alert("Game Over! Score: " + score);
+                location.reload();
+            }
+        }
+    });
+
+    document.getElementById("hud").innerHTML =
+        `💥 Score: ${score} | ❤️ Vida: ${life}`;
+}
+
+function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    // paredes
+    ctx.fillStyle = "#555";
+    walls.forEach(w => ctx.fillRect(w.x,w.y,w.w,w.h));
+
+    // player
+    ctx.fillStyle = "cyan";
+    ctx.fillRect(player.x, player.y, player.size, player.size);
+
+    // mira
+    ctx.strokeStyle = "white";
+    ctx.beginPath();
+    ctx.moveTo(player.x, player.y);
+    ctx.lineTo(mouse.x, mouse.y);
+    ctx.stroke();
+
+    // bullets
+    ctx.fillStyle = "yellow";
+    bullets.forEach(b => ctx.fillRect(b.x,b.y,b.size,b.size));
+
+    // enemies
+    ctx.fillStyle = "red";
+    enemies.forEach(e => ctx.fillRect(e.x,e.y,e.size,e.size));
+}
+
+function loop(){
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+</body>
+</html>
